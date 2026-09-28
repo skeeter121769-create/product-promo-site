@@ -185,13 +185,13 @@ const SUPABASE_URL = 'https://uiqrtdtipneogfrelili.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_0A_kC82X33rn4xkVx97lIA_GYugX-Lf';
 const BUCKET = 'product-images';
 
-let supabase = null;
+let sbClient = null;
 let storageMode = 'checking'; // cloud | local
 let session = null;           // 登录会话（用于写权限）
 
 async function initAuth(){
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { data } = await supabase.auth.getSession();
+  sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data } = await sbClient.auth.getSession();
   session = data?.session || null;
   updateLoginBtn();
 }
@@ -923,7 +923,7 @@ async function doLogin(){
   const pass=document.getElementById('loginPassword')?.value;
   if(!email||!pass){ toast('请输入邮箱和密码'); return; }
   try{
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
     if(error) throw error;
     session=data.session;
     updateLoginBtn();
@@ -936,7 +936,7 @@ async function doLogin(){
   }
 }
 async function doLogout(){
-  await supabase.auth.signOut();
+  await sbClient.auth.signOut();
   session=null;
   updateLoginBtn();
   toast('已退出登录');
