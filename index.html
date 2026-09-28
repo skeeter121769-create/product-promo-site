@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>跨境电商推品平台 · 供打品团队查看</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --border:#e5e7eb; --text:#111827; --muted:#6b7280;
+    --primary:#2563eb; --primary-weak:#eff6ff; --green:#16a34a; --amber:#d97706; --red:#dc2626;
+    --radius:14px; --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  a{color:var(--primary);text-decoration:none}
+  .hidden{display:none!important}
+  .muted{color:var(--muted);font-size:13px}
+  .small{font-size:12px}
+  .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .badge-active{background:#dcfce7;color:#166534}
+  .badge-pending{background:#fef3c7;color:#92400e}
+  .badge-offline{background:#e5e7eb;color:#4b5563}
+  .badge-comm{background:var(--primary-weak);color:var(--primary)}
+  .btn{border:none;border-radius:10px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-primary:hover{background:#1d4ed8}
+  .btn-ghost{background:#fff;color:var(--text);border:1px solid var(--border)}
+  .btn-ghost:hover{background:#f9fafb}
+  .btn-danger{background:#fee2e2;color:var(--red)}
+  .btn-sm{padding:4px 12px;font-size:13px}
+
+  /* Layout */
+  .topbar{background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+  .topbar-inner{max-width:1180px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:24px}
+  .brand{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--primary);display:inline-block}
+  .nav{display:flex;gap:4px}
+  .nav a{padding:8px 14px;border-radius:9px;color:var(--muted);font-weight:600;font-size:14px}
+  .nav a.active,.nav a:hover{color:var(--primary);background:var(--primary-weak)}
+  .topbar-spacer{flex:1}
+  .storage-pill{font-size:12px;padding:4px 12px;border-radius:999px;font-weight:600}
+  .pill-cloud{background:#dcfce7;color:#166534}
+  .pill-local{background:#fef3c7;color:#92400e}
+  .pill-checking{background:#e5e7eb;color:#4b5563}
+  .local-banner{background:#fffbeb;border-bottom:1px solid #fde68a;padding:8px 20px;text-align:center;font-size:13px;color:#92400e}
+  .local-banner button{margin-left:8px}
+
+  .container{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+
+  /* Cards grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+  .pcard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.15s;box-shadow:var(--shadow)}
+  .pcard:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.09)}
+  .pcard-img{width:100%;height:200px;object-fit:cover;background:#f3f4f6;display:block}
+  .pcard-body{padding:14px}
+  .pcard-store{font-size:12px;color:var(--muted)}
+  .pcard-title{font-weight:700;font-size:15px;margin:4px 0 6px;line-height:1.4}
+  .pcard-highlight{font-size:13px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:38px}
+  .pcard-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+  .pcard-comm{color:var(--primary);font-weight:800;font-size:16px}
+  .pcard-price{font-size:13px;color:var(--muted)}
+
+  /* Layout split for list page */
+  .list-layout{display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:start}
+  .filter-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:sticky;top:76px}
+  .filter-group{margin-bottom:18px}
+  .filter-label{font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text)}
+  .fopt{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:14px}
+  .fopt:hover{background:#f9fafb}
+  .fopt.active{background:var(--primary-weak);color:var(--primary);font-weight:600}
+  .fopt input{accent-color:var(--primary)}
+  select,input[type=text],input[type=number],textarea{
+    width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:#fff;color:var(--text)
+  }
+  select:focus,input:focus,textarea:focus{outline:2px solid var(--primary-weak);border-color:var(--primary)}
+  textarea{resize:vertical;min-height:70px}
+
+  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  .toolbar .search{flex:1;min-width:220px}
+  .search-wrap{position:relative}
+  .search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+
+  /* Detail */
+  .detail-top{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;display:grid;grid-template-columns:420px 1fr;gap:28px}
+  @media(max-width:800px){.detail-top{grid-template-columns:1fr}.list-layout{grid-template-columns:1fr}.filter-panel{position:static}}
+  .gallery{position:relative}
+  .gallery-main{width:100%;height:400px;object-fit:cover;border-radius:12px;background:#f3f4f6}
+  .gallery-thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .gallery-thumbs img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid transparent;cursor:pointer}
+  .gallery-thumbs img.active{border-color:var(--primary)}
+  .comm-card{background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:16px;margin:14px 0}
+  .comm-card .rate{font-size:32px;font-weight:800;color:var(--primary)}
+  .hl-list{list-style:none;margin:12px 0}
+  .hl-list li{display:flex;gap:8px;padding:6px 0;font-size:15px}
+  .hl-list li:before{content:"✓";color:var(--green);font-weight:800;flex-shrink:0}
+  .kv{display:grid;grid-template-columns:110px 1fr;gap:10px;font-size:14px;padding:8px 0;border-bottom:1px dashed var(--border)}
+  .kv .k{color:var(--muted)}
+  .detail-tabs{display:flex;gap:8px;margin-top:24px;flex-wrap:wrap}
+  .dtab{padding:8px 16px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;background:#fff;border:1px solid var(--border);color:var(--muted)}
+  .dtab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .detail-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-top:14px}
+
+  /* Stores */
+  .scard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:.15s;box-shadow:var(--shadow)}
+  .scard:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.09)}
+  .scard-title{font-size:17px;font-weight:700}
+  .stat-row{display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap}
+  .stat-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 24px;flex:1;min-width:140px}
+  .stat-box .num{font-size:26px;font-weight:800;color:var(--primary)}
+  .stat-box .lab{font-size:13px;color:var(--muted)}
+
+  /* Admin */
+  .admin-tabs{display:flex;gap:8px;margin-bottom:20px}
+  .atab{padding:10px 20px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;background:#fff;border:1px solid var(--border)}
+  .atab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .atable{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;font-size:14px}
+  .atable th{background:#f9fafb;text-align:left;padding:12px 14px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--border)}
+  .atable td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .atable tr:last-child td{border-bottom:none}
+  .atable .row-actions{display:flex;gap:8px}
+  .thumb{width:44px;height:44px;object-fit:cover;border-radius:8px;background:#f3f4f6}
+
+  /* Modal */
+  .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:100;overflow:auto}
+  .modal{background:#fff;border-radius:16px;max-width:720px;width:100%;padding:24px;max-height:90vh;overflow:auto}
+  .modal h3{font-size:18px;margin-bottom:18px}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+  .form-field{display:flex;flex-direction:column;gap:5px}
+  .form-field.full{grid-column:1/-1}
+  .form-field label{font-size:13px;font-weight:600;color:var(--muted)}
+  .img-uploader{border:2px dashed var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;background:#fafafa}
+  .img-uploader:hover{border-color:var(--primary);background:var(--primary-weak)}
+  .img-preview-list{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .img-preview{position:relative;width:84px;height:84px}
+  .img-preview img{width:100%;height:100%;object-fit:cover;border-radius:8px}
+  .img-preview .del{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:12px;line-height:20px;text-align:center}
+  .modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+
+  .empty{text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty .big{font-size:44px;margin-bottom:10px}
+  .crumb{font-size:13px;color:var(--muted);margin-bottom:16px}
+  .loading{text-align:center;padding:80px 20px;color:var(--muted)}
+  .spinner{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 20px;border-radius:10px;font-size:14px;z-index:200;opacity:0;transition:.25s;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+  .toast.show{opacity:1}
+  .store-tag{display:inline-block;background:#eef2ff;color:#4338ca;border-radius:6px;padding:1px 8px;font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="dot"></span>推品平台</div>
+    <nav class="nav" id="nav">
+      <a href="#/" data-route="products">全部商品</a>
+      <a href="#/stores" data-route="stores">店铺</a>
+      <a href="#/admin" data-route="admin">管理后台</a>
+    </nav>
+    <div class="topbar-spacer"></div>
+    <span class="storage-pill pill-checking" id="storagePill">检测云端连接…</span>
+    <button class="btn btn-ghost btn-sm" id="loginBtn" onclick="toggleLogin()">登录管理</button>
+  </div>
+</header>
+<div class="local-banner hidden" id="localBanner">
+  ⚠️ 当前为本地模式（数据仅保存在本浏览器），云端暂不可用
+  <button class="btn btn-sm" onclick="window.__recheckCloud()">重试连接云端</button>
+</div>
+
+<!-- App root -->
+<main id="app"><div class="loading"><div class="spinner"></div>加载中…</div></main>
+
+<!-- Modal root -->
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   配置：Supabase 连接（GitHub Pages 前端直连）
+   ========================================================= */
+const SUPABASE_URL = 'https://uiqrtdtipneogfrelili.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_0A_kC82X33rn4xkVx97lIA_GYugX-Lf';
+const BUCKET = 'product-images';
+
+let supabase = null;
+let storageMode = 'checking'; // cloud | local
+let session = null;           // 登录会话（用于写权限）
+
+async function initAuth(){
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data } = await supabase.auth.getSession();
+  session = data?.session || null;
+  updateLoginBtn();
+}
+
+/* =========================================================
+   本地降级存储
+   ========================================================= */
+const LS_KEY = '__db_products_v1';
+function lsLoad(){ try{return JSON.parse(localStorage.getItem(LS_KEY)||'null');}catch(e){return null;} }
+function lsSave(data){ localStorage.setItem(LS_KEY, JSON.stringify(data)); }
+
+/* =========================================================
+   示例数据（首次初始化）
+   ========================================================= */
+const MOCK_STORES = [
+  {id:'s1', name:'NovaHome 北美旗舰店', platform:'Shopify', target_market:'美区', store_url:'https://example.com/nova-home', category:'家居收纳', rating:'4.8 · 1.2w粉丝', remark:'主攻美区中端家居市场'},
+  {id:'s2', name:'GlowSkin 美妆专营店', platform:'TikTok Shop', target_market:'美区/英区', store_url:'https://example.com/glowskin', category:'美妆个护', rating:'4.9 · 3.5w粉丝', remark:'短视频矩阵打法，爆款孵化能力强'},
+  {id:'s3', name:'FitPro 运动户外', platform:'Amazon', target_market:'北美/欧洲', store_url:'https://example.com/fitpro', category:'运动户外', rating:'4.7 · 2.1w评价', remark:'老店权重稳定，适合长线品'}
+];
+const MOCK_PRODUCTS = [
+  {id:'p1', storeId:'s1', name:'便携折叠收纳箱 大容量三开门', sku:'NOVA-STORE-001',
+   images:['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800','https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400'],
+   highlights:['三开门设计，顶部/侧边均可开盖取物','折叠后仅 5cm，收纳不占空间','加厚 PP 材质，承重 30kg','底部带滑轮，移动省力'],
+   specs:'材质：PP+ABS；尺寸 50×35×35cm；容量 55L；承重 30kg',
+   commissionRate:28, commissionNote:'佣金按售价 28% 结算，不含平台费用',
+   supplyPrice:19.9, suggestedPrice:39.9, discount:'上架享 5 折秒杀',
+   targetMarket:'美区', platform:'Shopify', materialStatus:'已有 3 条原创素材可提供',
+   stockInfo:'现货 3000 件，可支持日单 800+', salesData:'周销 1200+，评分 4.8',
+   authorization:'品牌独家授权，可长期合作', status:'active',
+   contactPerson:'商务 BD·王', contactInfo:'微信 nova-bd-01', remark:'爆款潜力大，建议做投放'},
+  {id:'p2', storeId:'s1', name:'桌面理线盒 一体式走线收纳', sku:'NOVA-STORE-002',
+   images:['https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=800'],
+   highlights:['一体式走线，桌面整洁','防滑底部，稳固不位移','双仓分区，兼容各种线材','极简设计适配办公/居家'],
+   specs:'材质：ABS；尺寸 30×10×8cm',
+   commissionRate:25, commissionNote:'佣金按售价 25% 结算',
+   supplyPrice:9.9, suggestedPrice:19.9,
+   targetMarket:'美区', platform:'Shopify', materialStatus:'可定制素材',
+   stockInfo:'现货 2000 件', salesData:'新上架，无竞品冲突',
+   authorization:'品牌授权', status:'pending',
+   contactPerson:'商务 BD·王', contactInfo:'微信 nova-bd-01'},
+  {id:'p3', storeId:'s2', name:'烟酰胺焕亮精华 30ml 旅行装', sku:'GLOW-001',
+   images:['https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800'],
+   highlights:['5% 烟酰胺+1% 玻尿酸，焕亮补水','旅行装便携，复购率高','敏感肌可用，温和不刺激','美区热销成分赛道'],
+   specs:'30ml；烟酰胺 5%',
+   commissionRate:35, commissionNote:'TikTok 达人合作佣金 35%，可谈独家',
+   supplyPrice:4.5, suggestedPrice:12.9,
+   targetMarket:'美区/英区', platform:'TikTok Shop', materialStatus:'已有 5 条爆款素材',
+   stockInfo:'现货 10000 件，可支持日单 3000+', salesData:'同类目 TTS 美区周榜前 20',
+   authorization:'品牌独家授权', status:'active',
+   contactPerson:'商务 BD·李', contactInfo:'微信 glow-bd-02'},
+  {id:'p4', storeId:'s2', name:'磁吸假睫毛 免胶速贴款', sku:'GLOW-002',
+   images:['https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800'],
+   highlights:['磁吸免胶，新手 30 秒上手','含上睫毛+下睫毛双幅','可重复使用 20 次','轻量自然，妆感立体'],
+   specs:'一盒 2 幅；磁吸款',
+   commissionRate:30, commissionNote:'佣金 30%，达人佣金日结',
+   supplyPrice:3.2, suggestedPrice:9.9,
+   targetMarket:'美区', platform:'TikTok Shop', materialStatus:'可提供对标素材',
+   stockInfo:'现货 5000 件', salesData:'短视频完播率高，起量快',
+   authorization:'品牌授权', status:'active',
+   contactPerson:'商务 BD·李', contactInfo:'微信 glow-bd-02'},
+  {id:'p5', storeId:'s3', name:'加厚瑜伽垫 防滑可折叠 TPE', sku:'FIT-001',
+   images:['https://images.unsplash.com/photo-1592432678016-e910b452f9a2?w=800'],
+   highlights:['TPE 环保材质，无气味','双面防滑纹路，稳固不滑','可折叠设计，便于携带收纳','加厚 8mm，保护关节'],
+   specs:'183×61×0.8cm；TPE',
+   commissionRate:22, commissionNote:'佣金 22%，Amazon 联盟模式',
+   supplyPrice:11.5, suggestedPrice:29.9,
+   targetMarket:'北美/欧洲', platform:'Amazon', materialStatus:'待制作',
+   stockInfo:'现货 3000 件', salesData:'竞品月销 8000+，市场需求大',
+   authorization:'授权销售', status:'pending',
+   contactPerson:'商务 BD·陈', contactInfo:'微信 fit-bd-03'},
+  {id:'p6', storeId:'s3', name:'便携筋膜枪 迷你款 4 档调速', sku:'FIT-002',
+   images:['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800'],
+   highlights:['迷你便携，仅 450g','4 档力度调节，静音电机','USB-C 快充，续航 30 天','运动后放松神器'],
+   specs:'450g；4 档；续航 30 天',
+   commissionRate:24, commissionNote:'佣金 24%',
+   supplyPrice:25, suggestedPrice:59.9,
+   targetMarket:'北美', platform:'Amazon', materialStatus:'已有素材',
+   stockInfo:'现货 1500 件', salesData:'运动户外类目流量大',
+   authorization:'品牌独家授权', status:'offline',
+   contactPerson:'商务 BD·陈', contactInfo:'微信 fit-bd-03'}
+];
+
+/* =========================================================
+   Supabase 数据层（REST + Storage）
+   ========================================================= */
+async function cloudFetch(path, opts={}){
+  const method=(opts.method||'GET').toUpperCase();
+  // 写操作必须登录
+  if(['POST','PATCH','DELETE','PUT'].includes(method) && !session){
+    throw new Error('AUTH_REQUIRED');
+  }
+  const token = ['POST','PATCH','DELETE','PUT'].includes(method) ? session.access_token : SUPABASE_ANON_KEY;
+  const url = SUPABASE_URL + path;
+  const res = await fetch(url, {
+    ...opts,
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization':'Bearer '+token,
+      'Content-Type':'application/json',
+      ...(opts.headers||{})
+    }
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error('Supabase '+res.status+': '+t.slice(0,200)); }
+  return res.status===204 ? null : res.json();
+}
+
+const api = {
+  async init(){ return api.check(); },
+  async check(){
+    try{
+      await cloudFetch('/rest/v1/stores?select=id&limit=1');
+      storageMode='cloud'; return true;
+    }catch(e){ storageMode='local'; return false; }
+  },
+  async getStores(){
+    if(storageMode==='cloud'){
+      const rows = await cloudFetch('/rest/v1/stores?select=*&order=created_at.asc');
+      return rows.map(r=>({id:r.id,name:r.name,platform:r.platform,targetMarket:r.target_market,storeUrl:r.store_url,category:r.category,rating:r.rating,remark:r.remark}));
+    }
+    const d=lsLoad(); return d?d.stores:[];
+  },
+  async getProducts(){
+    if(storageMode==='cloud'){
+      const rows = await cloudFetch('/rest/v1/products?select=*&order=created_at.asc');
+      return rows.map(r=>({id:r.id,storeId:r.store_id,name:r.name,sku:r.sku,images:r.images||[],highlights:r.highlights||[],specs:r.specs,commissionRate:r.commission_rate,commissionNote:r.commission_note,supplyPrice:r.supply_price,suggestedPrice:r.suggested_price,discount:r.discount,targetMarket:r.target_market,platform:r.platform,materialStatus:r.material_status,stockInfo:r.stock_info,salesData:r.sales_data,authorization:r.authorization_note,status:r.status,contactPerson:r.contact_person,contactInfo:r.contact_info,remark:r.remark}));
+    }
+    const d=lsLoad(); return d?d.products:[];
+  },
+  async addStore(s){ if(storageMode==='cloud'){ await cloudFetch('/rest/v1/stores',{method:'POST',body:JSON.stringify({name:s.name,platform:s.platform,target_market:s.targetMarket,store_url:s.storeUrl,category:s.category,rating:s.rating,remark:s.remark,created_at:new Date().toISOString()})}); return; } const d=lsLoad()||{stores:[],products:[]}; s.id='s'+Date.now(); d.stores.push(s); lsSave(d); },
+  async updateStore(id,s){ if(storageMode==='cloud'){ await cloudFetch('/rest/v1/stores?id=eq.'+id,{method:'PATCH',body:JSON.stringify({name:s.name,platform:s.platform,target_market:s.targetMarket,store_url:s.storeUrl,category:s.category,rating:s.rating,remark:s.remark})}); return; } const d=lsLoad(); const i=d.stores.findIndex(x=>x.id===id); if(i>-1) d.stores[i]=s; lsSave(d); },
+  async deleteStore(id){ if(storageMode==='cloud'){ await cloudFetch('/rest/v1/stores?id=eq.'+id,{method:'DELETE'}); return; } const d=lsLoad(); d.stores=d.stores.filter(x=>x.id!==id); d.products=d.products.filter(p=>p.storeId!==id); lsSave(d); },
+  async addProduct(p){ if(storageMode==='cloud'){ await cloudFetch('/rest/v1/products',{method:'POST',body:JSON.stringify(toRow(p))}); return; } const d=lsLoad()||{stores:[],products:[]}; p.id='p'+Date.now(); d.products.push(p); lsSave(d); },
+  async updateProduct(id,p){ if(storageMode==='cloud'){ await cloudFetch('/rest/v1/products?id=eq.'+id,{method:'PATCH',body:JSON.stringify(toRow(p))}); return; } const d=lsLoad(); const i=d.products.findIndex(x=>x.id===id); if(i>-1) d.products[i]=p; lsSave(d); },
+  async deleteProduct(id){ if(storageMode==='cloud'){ await cloudFetch('/rest/v1/products?id=eq.'+id,{method:'DELETE'}); return; } const d=lsLoad(); d.products=d.products.filter(x=>x.id!==id); lsSave(d); },
+  async uploadImage(file){
+    if(storageMode==='cloud'){
+      if(!session){ throw new Error('AUTH_REQUIRED'); }
+      const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+      const path='img/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
+      const form=new FormData(); form.append('file',file);
+      const res=await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`,{
+        method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token},body:form
+      });
+      if(!res.ok){ const t=await res.text(); throw new Error('上传失败 '+res.status+': '+t.slice(0,150)); }
+      return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
+    }
+    return await fileToDataUrl(file);
+  },
+  async seedIfEmpty(){
+    const [stores,products]=await Promise.all([api.getStores(),api.getProducts()]);
+    if(!stores.length && !products.length){
+      for(const s of MOCK_STORES){ await api.addStore(s); }
+      for(const p of MOCK_PRODUCTS){ await api.addProduct(p); }
+    }
+  }
+};
+function toRow(p){
+  return {name:p.name,sku:p.sku,store_id:p.storeId,images:p.images||[],highlights:p.highlights||[],specs:p.specs,commission_rate:p.commissionRate,commission_note:p.commissionNote,supply_price:p.supplyPrice,suggested_price:p.suggestedPrice,discount:p.discount,target_market:p.targetMarket,platform:p.platform,material_status:p.materialStatus,stock_info:p.stockInfo,sales_data:p.salesData,authorization_note:p.authorization,status:p.status,contact_person:p.contactPerson,contact_info:p.contactInfo,remark:p.remark,created_at:new Date().toISOString()};
+}
+function fileToDataUrl(file){
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
+}
+
+/* =========================================================
+   App 状态
+   ========================================================= */
+let state={stores:[],products:[],route:location.hash||'#/',ready:false};
+let listeners=[];
+
+async function loadAll(){
+  try{
+    const ok = await api.check();
+    updateStoragePill();
+    if(ok){ try{ await api.seedIfEmpty(); }catch(e){ console.warn('seed fail',e);} }
+    const [stores,products]=await Promise.all([api.getStores(),api.getProducts()]);
+    state.stores=stores; state.products=products;
+  }catch(e){
+    // 降级到本地
+    storageMode='local'; updateStoragePill();
+    const [stores,products]=await Promise.all([api.getStores(),api.getProducts()]);
+    if(!stores.length&&!products.length){ lsSave({stores:MOCK_STORES,products:MOCK_PRODUCTS}); state.stores=MOCK_STORES; state.products=MOCK_PRODUCTS; }
+    else { state.stores=stores; state.products=products; }
+  }
+  state.ready=true;
+  render();
+}
+window.__recheckCloud=async()=>{ toast('正在重新连接云端…'); storageMode='cloud'; await loadAll(); if(storageMode==='cloud') toast('已连接云端 ✓'); };
+function updateStoragePill(){
+  const pill=document.getElementById('storagePill');
+  const banner=document.getElementById('localBanner');
+  if(storageMode==='cloud'){ pill.textContent='✓ 云端同步'; pill.className='storage-pill pill-cloud'; banner.classList.add('hidden'); }
+  else if(storageMode==='local'){ pill.textContent='本地模式'; pill.className='storage-pill pill-local'; banner.classList.remove('hidden'); }
+  else { pill.textContent='检测中…'; pill.className='storage-pill pill-checking'; }
+}
+
+function setRoute(r){ location.hash=r; }
+window.addEventListener('hashchange', ()=>{ state.route=location.hash||'#/'; updateNav(); render(); });
+function updateNav(){
+  const path=state.route.split('?')[0];
+  document.querySelectorAll('#nav a').forEach(a=>{
+    const r=a.dataset.route;
+    a.classList.toggle('active', (r==='products'&&path==='#/')||path.startsWith(a.getAttribute('href')));
+  });
+}
+
+/* =========================================================
+   Helpers
+   ========================================================= */
+function storeById(id){ return state.stores.find(s=>s.id===id)||{}; }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function money(n){ return '$'+ (Number(n)||0).toFixed(2); }
+function statusBadge(s){
+  if(s==='active') return '<span class="badge badge-active">在售</span>';
+  if(s==='pending') return '<span class="badge badge-pending">待上架</span>';
+  return '<span class="badge badge-offline">已下架</span>';
+}
+let toastTimer;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
+
+function openModal(html){
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-mask" onclick="if(event.target===this)closeModal()">${html}</div>`;
+}
+function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+
+/* =========================================================
+   Views
+   ========================================================= */
+function render(){
+  const app=document.getElementById('app');
+  if(!state.ready){ app.innerHTML='<div class="loading"><div class="spinner"></div>加载中…</div>'; return; }
+  const path=state.route.split('?')[0];
+  if(path.startsWith('#/stores/')){ app.innerHTML=storeDetailView(path.split('/')[2]); }
+  else if(path==='#/stores'){ app.innerHTML=storeListView(); }
+  else if(path.startsWith('#/product/')){ app.innerHTML=productDetailView(path.split('/')[2]); }
+  else if(path==='#/admin'){ app.innerHTML=adminView(); }
+  else { app.innerHTML=productListView(); }
+  bindListEvents();
+}
+
+/* ---------------- Product list ---------------- */
+function productListView(){
+  const params=new URLSearchParams(state.route.split('?')[1]||'');
+  const kw=params.get('kw')||'';
+  const store=params.get('store')||'all';
+  const status=params.get('status')||'all';
+  const comm=params.get('comm')||'all';
+
+  let list=state.products.slice();
+  if(store!=='all') list=list.filter(p=>p.storeId===store);
+  if(status!=='all') list=list.filter(p=>p.status===status);
+  if(comm!=='all') list=list.filter(p=>p.commissionRate>=Number(comm));
+  if(kw){ const k=kw.toLowerCase(); list=list.filter(p=>(p.name+' '+p.sku+' '+(p.highlights||[]).join(' ')).toLowerCase().includes(k)); }
+
+  const commOpts=[20,25,30,35];
+  const storeOptions=state.stores.map(s=>`<label class="fopt ${store===s.id?'active':''}"><input type="radio" name="fstore" data-filter="store" data-val="${s.id}" ${store===s.id?'checked':''}>${esc(s.name)}</label>`).join('');
+
+  return `
+  <div class="container">
+    <div class="toolbar">
+      <div class="search-wrap" style="flex:1">
+        <input type="text" id="searchInput" placeholder="搜索商品名称 / SKU / 卖点…" value="${esc(kw)}">
+      </div>
+      <button class="btn btn-primary" id="clearBtn">清除筛选</button>
+    </div>
+    <div class="list-layout">
+      <aside class="filter-panel">
+        <div class="filter-group">
+          <div class="filter-label">店铺</div>
+          <label class="fopt ${store==='all'?'active':''}"><input type="radio" name="fstore" data-filter="store" data-val="all" ${store==='all'?'checked':''}>全部店铺</label>
+          ${storeOptions}
+        </div>
+        <div class="filter-group">
+          <div class="filter-label">状态</div>
+          ${[['all','全部'],['active','在售'],['pending','待上架'],['offline','已下架']].map(([v,l])=>`<label class="fopt ${status===v?'active':''}"><input type="radio" name="fstatus" data-filter="status" data-val="${v}" ${status===v?'checked':''}>${l}</label>`).join('')}
+        </div>
+        <div class="filter-group">
+          <div class="filter-label">佣金率 ≥</div>
+          ${[['all','不限'],...commOpts.map(v=>[String(v),v+'%'])] .map(([v,l])=>`<label class="fopt ${comm===v?'active':''}"><input type="radio" name="fcomm" data-filter="comm" data-val="${v}" ${comm===v?'checked':''}>${l}</label>`).join('')}
+        </div>
+      </aside>
+      <div>
+        <div class="muted" style="margin-bottom:12px">共 ${list.length} 个商品</div>
+        ${list.length?`<div class="grid">${list.map(pc).join('')}</div>`:`<div class="empty"><div class="big">🔍</div>没有符合条件的商品<br><br><button class="btn btn-primary" onclick="location.hash='#/'">清除筛选</button></div>`}
+      </div>
+    </div>
+  </div>`;
+}
+function pc(p){
+  const s=storeById(p.storeId);
+  const img=p.images&&p.images[0]||'';
+  return `<div class="pcard" onclick="location.hash='#/product/${p.id}'">
+    ${img?`<img class="pcard-img" src="${esc(img)}" alt="">`:`<div class="pcard-img" style="display:flex;align-items:center;justify-content:center;color:#9ca3af">暂无图片</div>`}
+    <div class="pcard-body">
+      <div class="pcard-store">${esc(s.name||'未分类')} · ${esc(p.platform||'')} ${esc(p.targetMarket||'')}</div>
+      <div class="pcard-title">${esc(p.name)}</div>
+      <div class="pcard-highlight">${esc((p.highlights||[]).join('；'))}</div>
+      <div class="pcard-foot">
+        <span class="pcard-comm">佣金 ${p.commissionRate||0}%</span>
+        <span class="pcard-price">${money(p.suggestedPrice)}</span>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px;align-items:center;justify-content:space-between">
+        ${statusBadge(p.status)}
+        <span class="badge badge-comm">供货 ${money(p.supplyPrice)}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------------- Product detail ---------------- */
+function productDetailView(id){
+  const p=state.products.find(x=>x.id===id);
+  if(!p) return '<div class="container"><div class="empty"><div class="big">😕</div>商品不存在</div></div>';
+  const s=storeById(p.storeId);
+  const imgs=p.images&&p.images.length?p.images:[];
+  const thumbs=imgs.slice(0,5).map((u,i)=>`<img src="${esc(u)}" class="${i===0?'active':''}" onclick="gallerySet(${i})">`).join('');
+  const hl=(p.highlights||[]).map(h=>`<li>${esc(h)}</li>`).join('');
+
+  return `<div class="container">
+    <div class="crumb"><a href="#/">← 全部商品</a> ${s.name?`/ <a href="#/stores/${p.storeId}">${esc(s.name)}</a>`:''} / ${esc(p.name)}</div>
+    <div class="detail-top">
+      <div>
+        <div class="gallery">
+          ${imgs.length?`<img class="gallery-main" id="galleryMain" src="${esc(imgs[0])}">`:`<div class="gallery-main" style="display:flex;align-items:center;justify-content:center;color:#9ca3af">暂无图片</div>`}
+          ${thumbs?`<div class="gallery-thumbs">${thumbs}</div>`:''}
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          ${statusBadge(p.status)} <span class="store-tag">${esc(s.name||'未分类')}</span> <span class="muted">${esc(p.sku||'')}</span>
+        </div>
+        <h1 style="font-size:24px;margin-bottom:10px">${esc(p.name)}</h1>
+        <div class="comm-card">
+          <div class="muted">佣金率</div>
+          <div class="rate">${p.commissionRate||0}%</div>
+          <div class="small muted">${esc(p.commissionNote||'')}</div>
+        </div>
+        <div class="kv"><div class="k">售价</div><div><b>${money(p.suggestedPrice)}</b> <span class="muted">供货价 ${money(p.supplyPrice)}</span></div></div>
+        ${p.discount?`<div class="kv"><div class="k">活动</div><div>${esc(p.discount)}</div></div>`:''}
+        ${p.salesData?`<div class="kv"><div class="k">销量表现</div><div>${esc(p.salesData)}</div></div>`:''}
+        <div class="kv"><div class="k">目标市场</div><div>${esc(p.targetMarket||'')} · ${esc(p.platform||'')}</div></div>
+        <ul class="hl-list">${hl}</ul>
+      </div>
+    </div>
+
+    <div class="detail-tabs">
+      <div class="dtab active" data-tab="spec" onclick="tabSwitch(this)">规格参数</div>
+      <div class="dtab" data-tab="biz" onclick="tabSwitch(this)">商务信息</div>
+      <div class="dtab" data-tab="contact" onclick="tabSwitch(this)">对接联系</div>
+      ${p.remark?`<div class="dtab" data-tab="remark" onclick="tabSwitch(this)">备注</div>`:''}
+    </div>
+
+    <div class="detail-panel" id="detailPanel">
+      <div data-panel="spec">
+        <div class="kv"><div class="k">规格参数</div><div>${esc(p.specs||'—')}</div></div>
+        <div class="kv"><div class="k">素材情况</div><div>${esc(p.materialStatus||'—')}</div></div>
+        <div class="kv"><div class="k">库存 / 单量</div><div>${esc(p.stockInfo||'—')}</div></div>
+      </div>
+      <div data-panel="biz" class="hidden">
+        <div class="kv"><div class="k">佣金率</div><div>${p.commissionRate||0}% · ${esc(p.commissionNote||'')}</div></div>
+        <div class="kv"><div class="k">供货价</div><div>${money(p.supplyPrice)}</div></div>
+        <div class="kv"><div class="k">建议售价</div><div>${money(p.suggestedPrice)}</div></div>
+        <div class="kv"><div class="k">授权说明</div><div>${esc(p.authorization||'—')}</div></div>
+        <div class="kv"><div class="k">销售平台</div><div>${esc(p.platform||'—')}</div></div>
+      </div>
+      <div data-panel="contact" class="hidden">
+        <div class="kv"><div class="k">对接人</div><div>${esc(p.contactPerson||'—')}</div></div>
+        <div class="kv"><div class="k">联系方式</div><div>${esc(p.contactInfo||'—')}</div></div>
+      </div>
+      <div data-panel="remark" class="hidden">
+        <div class="kv"><div class="k">备注</div><div>${esc(p.remark||'—')}</div></div>
+      </div>
+    </div>
+  </div>`;
+}
+function gallerySet(i){
+  const imgs=[...document.querySelectorAll('.gallery-thumbs img')];
+  imgs.forEach((x,idx)=>x.classList.toggle('active',idx===i));
+  const main=document.getElementById('galleryMain');
+  if(main) main.src=imgs[i].src;
+}
+function tabSwitch(el){
+  document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const tab=el.dataset.tab;
+  document.querySelectorAll('[data-panel]').forEach(p=>p.classList.toggle('hidden',p.dataset.panel!==tab));
+}
+
+/* ---------------- Stores ---------------- */
+function storeListView(){
+  const counts={};
+  state.products.forEach(p=>counts[p.storeId]=(counts[p.storeId]||0)+1);
+  const activeStores=state.stores.filter(s=>state.products.some(p=>p.storeId===s.id&&p.status==='active'));
+  const pending=state.products.filter(p=>p.status==='pending').length;
+  return `<div class="container">
+    <h2 style="margin-bottom:18px">运营店铺</h2>
+    <div class="stat-row">
+      <div class="stat-box"><div class="num">${state.stores.length}</div><div class="lab">店铺总数</div></div>
+      <div class="stat-box"><div class="num">${state.products.length}</div><div class="lab">商品总数</div></div>
+      <div class="stat-box"><div class="num">${activeStores.length}</div><div class="lab">在售店铺</div></div>
+      <div class="stat-box"><div class="num">${pending}</div><div class="lab">待上架商品</div></div>
+    </div>
+    ${state.stores.length?`<div class="grid">
+      ${state.stores.map(s=>{
+        const n=counts[s.id]||0;
+        return `<div class="scard" onclick="location.hash='#/stores/${s.id}'">
+          <div class="scard-title">${esc(s.name)}</div>
+          <div style="margin:6px 0 10px"><span class="store-tag">${esc(s.platform)}</span> <span class="store-tag">${esc(s.targetMarket)}</span></div>
+          <div class="muted">${esc(s.category||'')} · ${esc(s.rating||'')}</div>
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+            <span class="badge badge-comm">${n} 个商品</span>
+            <span class="small" style="color:var(--primary)">查看 →</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`:`<div class="empty"><div class="big">🏬</div>暂无店铺</div>`}
+  </div>`;
+}
+function storeDetailView(id){
+  const s=state.stores.find(x=>x.id===id);
+  if(!s) return '<div class="container"><div class="empty"><div class="big">😕</div>店铺不存在</div></div>';
+  const prods=state.products.filter(p=>p.storeId===id);
+  return `<div class="container">
+    <div class="crumb"><a href="#/stores">← 全部店铺</a> / ${esc(s.name)}</div>
+    <div class="detail-top" style="grid-template-columns:1fr">
+      <div>
+        <h2 style="font-size:22px;margin-bottom:8px">${esc(s.name)}</h2>
+        <div style="margin-bottom:10px"><span class="store-tag">${esc(s.platform)}</span> <span class="store-tag">${esc(s.targetMarket)}</span> <span class="store-tag">${esc(s.category)}</span></div>
+        <div class="kv"><div class="k">店铺链接</div><div>${s.storeUrl?`<a href="${esc(s.storeUrl)}" target="_blank">${esc(s.storeUrl)}</a>`:'—'}</div></div>
+        <div class="kv"><div class="k">评分 / 粉丝</div><div>${esc(s.rating||'—')}</div></div>
+        <div class="kv"><div class="k">店铺定位</div><div>${esc(s.remark||'—')}</div></div>
+      </div>
+    </div>
+    <h3 style="margin:24px 0 14px">该店商品（${prods.length}）</h3>
+    ${prods.length?`<div class="grid">${prods.map(pc).join('')}</div>`:`<div class="empty"><div class="big">📦</div>该店铺暂无商品</div>`}
+  </div>`;
+}
+
+/* ---------------- Admin ---------------- */
+let adminTab='products';
+function adminView(){
+  // 未登录：展示登录卡片，不展示后台内容
+  if(!session){
+    return `<div class="container">
+      <div style="max-width:400px;margin:40px auto;background:#fff;border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center">
+        <div style="font-size:40px;margin-bottom:10px">🔒</div>
+        <h2 style="font-size:20px;margin-bottom:8px">管理后台需登录</h2>
+        <p class="muted" style="margin-bottom:18px">管理后台仅限运营人员登录使用，打品团队访问其他页面无需登录。</p>
+        <input type="email" id="loginEmail" placeholder="登录邮箱" style="margin-bottom:10px">
+        <input type="password" id="loginPassword" placeholder="登录密码" style="margin-bottom:16px" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="btn btn-primary" style="width:100%" onclick="doLogin()">登录</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="location.hash='#/'">← 返回浏览</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="container">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:8px">
+      <h2>管理后台</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="adminExport()">导出数据</button>
+        ${adminTab==='products'
+          ?`<button class="btn btn-primary btn-sm" onclick="productForm()">+ 新增商品</button>`
+          :`<button class="btn btn-primary btn-sm" onclick="storeForm()">+ 新增店铺</button>`}
+      </div>
+    </div>
+    <div class="admin-tabs">
+      <div class="atab ${adminTab==='products'?'active':''}" onclick="adminTab='products';render()">商品管理</div>
+      <div class="atab ${adminTab==='stores'?'active':''}" onclick="adminTab='stores';render()">店铺管理</div>
+    </div>
+    ${adminTab==='products'?adminProductsTable():adminStoresTable()}
+  </div>`;
+}
+function adminProductsTable(){
+  const sMap=Object.fromEntries(state.stores.map(s=>[s.id,s.name]));
+  const rows=state.products.map(p=>`<tr>
+    <td>${p.images&&p.images[0]?`<img class="thumb" src="${esc(p.images[0])}">`:'<div class="thumb" style="display:flex;align-items:center;justify-content:center;color:#c0c4cc">无</div>'}</td>
+    <td><b>${esc(p.name)}</b><br><span class="muted small">${esc(p.sku||'')}</span></td>
+    <td><span class="store-tag">${esc(sMap[p.storeId]||'未分类')}</span></td>
+    <td style="color:var(--primary);font-weight:700">${p.commissionRate||0}%</td>
+    <td>
+      <select onchange="quickStatus('${p.id}',this.value)">
+        <option value="pending" ${p.status==='pending'?'selected':''}>待上架</option>
+        <option value="active" ${p.status==='active'?'selected':''}>在售</option>
+        <option value="offline" ${p.status==='offline'?'selected':''}>已下架</option>
+      </select>
+    </td>
+    <td>
+      <div class="row-actions">
+        <button class="btn btn-ghost btn-sm" onclick="productForm('${p.id}')">编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">删除</button>
+      </div>
+    </td>
+  </tr>`).join('');
+  return `<table class="atable">
+    <thead><tr><th></th><th>商品</th><th>所属店铺</th><th>佣金</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan=6 style="text-align:center;color:var(--muted);padding:30px">暂无商品，点击右上角新增</td></tr>'}</tbody>
+  </table>`;
+}
+function adminStoresTable(){
+  const counts={}; state.products.forEach(p=>counts[p.storeId]=(counts[p.storeId]||0)+1);
+  const rows=state.stores.map(s=>`<tr>
+    <td><b>${esc(s.name)}</b></td>
+    <td><span class="store-tag">${esc(s.platform)}</span> <span class="store-tag">${esc(s.targetMarket)}</span></td>
+    <td>${esc(s.category||'')}</td>
+    <td>${counts[s.id]||0} 个</td>
+    <td>
+      <div class="row-actions">
+        <button class="btn btn-ghost btn-sm" onclick="storeForm('${s.id}')">编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteStore('${s.id}')">删除</button>
+      </div>
+    </td>
+  </tr>`).join('');
+  return `<table class="atable">
+    <thead><tr><th>店铺</th><th>平台 / 市场</th><th>品类</th><th>商品数</th><th>操作</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan=5 style="text-align:center;color:var(--muted);padding:30px">暂无店铺</td></tr>'}</tbody>
+  </table>`;
+}
+
+/* =========================================================
+   Forms
+   ========================================================= */
+function storeForm(id){
+  const s=id?state.stores.find(x=>x.id===id):{name:'',platform:'',targetMarket:'',storeUrl:'',category:'',rating:'',remark:''};
+  openModal(`
+    <div class="modal"><h3>${id?'编辑店铺':'新增店铺'}</h3>
+      <div class="form-grid">
+        <div class="form-field full"><label>店铺名称 *</label><input id="f-name" value="${esc(s.name)}"></div>
+        <div class="form-field"><label>销售平台</label><input id="f-platform" value="${esc(s.platform)}" placeholder="Shopify / TikTok Shop / Amazon"></div>
+        <div class="form-field"><label>目标市场</label><input id="f-market" value="${esc(s.targetMarket)}" placeholder="美区 / 英区"></div>
+        <div class="form-field"><label>主打品类</label><input id="f-category" value="${esc(s.category)}"></div>
+        <div class="form-field"><label>评分 / 粉丝</label><input id="f-rating" value="${esc(s.rating)}"></div>
+        <div class="form-field full"><label>店铺链接</label><input id="f-url" value="${esc(s.storeUrl)}" placeholder="https://..."></div>
+        <div class="form-field full"><label>店铺定位 / 备注</label><textarea id="f-remark">${esc(s.remark)}</textarea></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveStore('${id||''}')">保存</button>
+      </div>
+    </div>`);
+}
+async function saveStore(id){
+  if(!requireLogin()) return;
+  const val={name:val('f-name'),platform:val('f-platform'),targetMarket:val('f-market'),storeUrl:val('f-url'),category:val('f-category'),rating:val('f-rating'),remark:val('f-remark')};
+  if(!val.name){toast('请填写店铺名称');return;}
+  try{
+    if(id){ await api.updateStore(id,{...val,id}); } else { await api.addStore(val); }
+    closeModal(); await loadAll(); toast(id?'已保存':'已新增店铺');
+  }catch(e){ toast('保存失败：'+e.message); }
+}
+
+function productForm(id){
+  const p=id?state.products.find(x=>x.id===id):{name:'',sku:'',storeId:state.stores[0]?.id||'',images:[],highlights:[''],specs:'',commissionRate:20,commissionNote:'',supplyPrice:'',suggestedPrice:'',discount:'',targetMarket:'',platform:'',materialStatus:'',stockInfo:'',salesData:'',authorization:'',status:'pending',contactPerson:'',contactInfo:'',remark:''};
+  const storeOpts=state.stores.map(s=>`<option value="${s.id}" ${p.storeId===s.id?'selected':''}>${esc(s.name)}</option>`).join('');
+  const hlInputs=(p.highlights&&p.highlights.length?p.highlights:['']).map((h,i)=>`<div style="display:flex;gap:8px;margin-bottom:6px"><input value="${esc(h)}" data-hl="${i}" placeholder="卖点 ${i+1}"><button class="btn btn-danger btn-sm" onclick="event.preventDefault();removeHl(this)">×</button></div>`).join('');
+  const imgPreview=p.images.map((u,i)=>`<div class="img-preview"><img src="${esc(u)}"><button class="del" onclick="removeImg(${i})">×</button></div>`).join('');
+  openModal(`
+    <div class="modal" style="max-width:820px"><h3>${id?'编辑商品':'新增商品'}</h3>
+      <div class="form-grid">
+        <div class="form-field full"><label>商品名称 *</label><input id="p-name" value="${esc(p.name)}"></div>
+        <div class="form-field"><label>货号 / SKU</label><input id="p-sku" value="${esc(p.sku)}"></div>
+        <div class="form-field"><label>所属店铺 *</label><select id="p-store"><option value="">未选择</option>${storeOpts}</select></div>
+
+        <div class="form-field full"><label>产品图片</label>
+          <div class="img-uploader" onclick="document.getElementById('p-imgfile').click()">点击上传图片（可多张，上传到云端）</div>
+          <input type="file" id="p-imgfile" accept="image/*" multiple class="hidden" onchange="uploadImgs(this)">
+          <div class="img-preview-list" id="imgPreview">${imgPreview}</div>
+        </div>
+
+        <div class="form-field full"><label>产品卖点</label><div id="hlList">${hlInputs}</div>
+          <button class="btn btn-ghost btn-sm" onclick="event.preventDefault();addHl()">+ 添加卖点</button>
+        </div>
+
+        <div class="form-field"><label>佣金率 (%) *</label><input id="p-comm" type="number" value="${p.commissionRate}" min="0" max="100"></div>
+        <div class="form-field"><label>结算说明</label><input id="p-commnote" value="${esc(p.commissionNote)}"></div>
+        <div class="form-field"><label>供货价 ($)</label><input id="p-supply" type="number" step="0.01" value="${p.supplyPrice}"></div>
+        <div class="form-field"><label>建议售价 ($)</label><input id="p-price" type="number" step="0.01" value="${p.suggestedPrice}"></div>
+        <div class="form-field"><label>活动 / 折扣</label><input id="p-discount" value="${esc(p.discount)}"></div>
+        <div class="form-field"><label>状态</label><select id="p-status"><option value="pending" ${p.status==='pending'?'selected':''}>待上架</option><option value="active" ${p.status==='active'?'selected':''}>在售</option><option value="offline" ${p.status==='offline'?'selected':''}>已下架</option></select></div>
+        <div class="form-field"><label>目标市场</label><input id="p-market" value="${esc(p.targetMarket)}"></div>
+        <div class="form-field"><label>销售平台</label><input id="p-platform" value="${esc(p.platform)}"></div>
+        <div class="form-field"><label>素材情况</label><input id="p-material" value="${esc(p.materialStatus)}"></div>
+        <div class="form-field"><label>库存 / 可支持单量</label><input id="p-stock" value="${esc(p.stockInfo)}"></div>
+        <div class="form-field"><label>销量表现</label><input id="p-sales" value="${esc(p.salesData)}"></div>
+        <div class="form-field"><label>授权说明</label><input id="p-auth" value="${esc(p.authorization)}"></div>
+        <div class="form-field"><label>对接人</label><input id="p-person" value="${esc(p.contactPerson)}"></div>
+        <div class="form-field"><label>联系方式</label><input id="p-contact" value="${esc(p.contactInfo)}"></div>
+        <div class="form-field full"><label>规格参数</label><textarea id="p-specs">${esc(p.specs)}</textarea></div>
+        <div class="form-field full"><label>备注</label><textarea id="p-remark">${esc(p.remark)}</textarea></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveProduct('${id||''}')">保存</button>
+      </div>
+    </div>`);
+}
+function val(id){ return document.getElementById(id)?.value||''; }
+
+let draftImages=[];
+function uploadImgs(input){
+  const files=[...input.files];
+  (async()=>{
+    for(const f of files){
+      try{ const url=await api.uploadImage(f); draftImages.push(url); }
+      catch(e){ toast('图片上传失败：'+e.message); }
+    }
+    input.value='';
+    const wrap=document.getElementById('imgPreview');
+    if(wrap) wrap.innerHTML = draftImages.map((u,i)=>`<div class="img-preview"><img src="${esc(u)}"><button class="del" onclick="removeImg(${i})">×</button></div>`).join('');
+  })();
+}
+function removeImg(i){ draftImages.splice(i,1); const wrap=document.getElementById('imgPreview'); if(wrap) wrap.innerHTML=draftImages.map((u,idx)=>`<div class="img-preview"><img src="${esc(u)}"><button class="del" onclick="removeImg(${idx})">×</button></div>`).join(''); }
+function addHl(){
+  const list=document.getElementById('hlList');
+  const i=list.children.length;
+  const d=document.createElement('div'); d.style.display='flex'; d.style.gap='8px'; d.style.marginBottom='6px';
+  d.innerHTML=`<input data-hl="${i}" placeholder="卖点 ${i+1}"><button class="btn btn-danger btn-sm" onclick="event.preventDefault();removeHl(this)">×</button>`;
+  list.appendChild(d);
+}
+function removeHl(btn){ btn.parentElement.remove(); }
+function collectHl(){ return [...document.querySelectorAll('[data-hl]')].map(i=>i.value).filter(v=>v.trim()); }
+
+async function saveProduct(id){
+  if(!requireLogin()) return;
+  const prev=id?state.products.find(x=>x.id===id):null;
+  const existingImgs=prev?prev.images:[];
+  const allImgs=[...existingImgs,...draftImages];
+  const val2={
+    name:val('p-name'),sku:val('p-sku'),storeId:val('p-store'),images:allImgs,highlights:collectHl(),
+    specs:val('p-specs'),commissionRate:Number(val('p-comm'))||0,commissionNote:val('p-commnote'),
+    supplyPrice:Number(val('p-supply'))||0,suggestedPrice:Number(val('p-price'))||0,discount:val('p-discount'),
+    targetMarket:val('p-market'),platform:val('p-platform'),materialStatus:val('p-material'),
+    stockInfo:val('p-stock'),salesData:val('p-sales'),authorization:val('p-auth'),
+    status:val('p-status'),contactPerson:val('p-person'),contactInfo:val('p-contact'),remark:val('p-remark')
+  };
+  if(!val2.name){toast('请填写商品名称');return;}
+  if(!val2.storeId){toast('请选择所属店铺');return;}
+  try{
+    if(id){ await api.updateProduct(id,val2); } else { await api.addProduct(val2); }
+    draftImages=[];
+    closeModal(); await loadAll(); toast(id?'已保存':'已新增商品');
+  }catch(e){ toast('保存失败：'+e.message); }
+}
+
+async function quickStatus(id,status){
+  if(!requireLogin()) return;
+  const p=state.products.find(x=>x.id===id); if(!p)return;
+  p.status=status;
+  try{ await api.updateProduct(id,p); toast('状态已更新'); }
+  catch(e){ toast('更新失败：'+e.message); }
+}
+async function deleteProduct(id){
+  if(!requireLogin()) return;
+  if(!confirm('确定删除该商品？'))return;
+  try{ await api.deleteProduct(id); await loadAll(); toast('已删除'); }catch(e){ toast('删除失败：'+e.message); }
+}
+async function deleteStore(id){
+  if(!requireLogin()) return;
+  const n=state.products.filter(p=>p.storeId===id).length;
+  if(!confirm(`确定删除该店铺？其下 ${n} 个商品也会一并删除。`))return;
+  try{ await api.deleteStore(id); await loadAll(); toast('已删除店铺'); }catch(e){ toast('删除失败：'+e.message); }
+}
+function adminExport(){
+  if(!requireLogin()) return;
+  const blob=new Blob([JSON.stringify({stores:state.stores,products:state.products},null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='推品数据备份.json'; a.click();
+  toast('已导出数据');
+}
+
+/* =========================================================
+   List bindings
+   ========================================================= */
+function bindListEvents(){
+  const si=document.getElementById('searchInput');
+  if(si){
+    let t;
+    si.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(()=>updateParam('kw',si.value),300); });
+  }
+  document.querySelectorAll('[data-filter]').forEach(el=>{
+    el.addEventListener('change',()=>updateParam(el.dataset.filter,el.dataset.val));
+  });
+  const clear=document.getElementById('clearBtn');
+  if(clear) clear.addEventListener('click',()=>{ location.hash='#/'; });
+}
+function updateParam(key,val){
+  const path=state.route.split('?')[0]||'#/';
+  const params=new URLSearchParams(state.route.split('?')[1]||'');
+  if(!val||val==='all') params.delete(key); else params.set(key,val);
+  const qs=params.toString();
+  history.replaceState(null,'',path+(qs?'?'+qs:''));
+  state.route=path+(qs?'?'+qs:'');
+  render();
+}
+
+/* =========================================================
+   登录 / 鉴权
+   ========================================================= */
+function updateLoginBtn(){
+  const btn=document.getElementById('loginBtn');
+  if(!btn) return;
+  if(session){
+    btn.textContent='退出登录';
+    btn.classList.remove('btn-ghost');
+    btn.classList.add('btn-danger');
+  } else {
+    btn.textContent='登录管理';
+    btn.classList.add('btn-ghost');
+    btn.classList.remove('btn-danger');
+  }
+}
+function toggleLogin(){
+  if(session){ doLogout(); return; }
+  if(state.route!=='#/admin'){ location.hash='#/admin'; }
+  else render();
+}
+async function doLogin(){
+  const email=document.getElementById('loginEmail')?.value.trim();
+  const pass=document.getElementById('loginPassword')?.value;
+  if(!email||!pass){ toast('请输入邮箱和密码'); return; }
+  try{
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if(error) throw error;
+    session=data.session;
+    updateLoginBtn();
+    toast('登录成功 ✓');
+    await loadAll();
+    if(state.route!=='#/admin') location.hash='#/admin';
+    render();
+  }catch(e){
+    toast('登录失败：'+(e.message||'邮箱或密码错误'));
+  }
+}
+async function doLogout(){
+  await supabase.auth.signOut();
+  session=null;
+  updateLoginBtn();
+  toast('已退出登录');
+  location.hash='#/';
+}
+function requireLogin(){
+  if(session) return true;
+  toast('请先登录管理后台');
+  location.hash='#/admin';
+  render();
+  return false;
+}
+
+/* init */
+(async function(){
+  try{ await initAuth(); }catch(e){ console.warn('auth init',e); }
+  await loadAll();
+})();
+</script>
+</body>
+</html>
